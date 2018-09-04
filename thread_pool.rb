@@ -53,10 +53,6 @@ module ThreadPool
       end
     end
 
-    def join_workers
-      workers.each { |w| w.thread.join }
-    end
-
     def queue_size
       queue.size
     end
