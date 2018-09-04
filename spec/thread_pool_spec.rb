@@ -37,6 +37,21 @@ RSpec.describe "ThreadPool" do
     expect(x).to eq(y)
   end
 
+  it "does work and waits for queue to empty" do
+    pool = ThreadPool::Pool.new(3)
+    x = []
+    y = []
+    5.times.with_index do |i|
+      y[i] = i
+      pool.add_task do
+        sleep(1) if i == 3
+        x[i] = i
+      end
+    end
+    pool.wait
+    expect(x).to eq(y)
+  end
+
   it "does work in a few threads" do
     pool = ThreadPool::Pool.new(1)
     x = 0

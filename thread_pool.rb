@@ -2,19 +2,34 @@
 
 module ThreadPool
   class Worker
-    attr_accessor :queue, :thread
+    attr_accessor :queue, :thread, :working
     def initialize(queue, mutex, cond)
-      @mutex = mutex
+      @parent_mutex = mutex
       @cond = cond
+      self.working = false
+      @my_mutex = Mutex.new
+      @my_cond = ConditionVariable.new
       self.queue = queue
       self.thread = start_worker_thread
+    end
+
+    def shutdown
+      @my_mutex.synchronize do
+        @shutdown = true
+      end
     end
 
     def start_worker_thread
       Thread.new do
         loop do
-          queue.pop.call
-          @mutex.synchronize do
+          task = queue.pop
+          @my_mutex.synchronize do
+            self.working = true
+            task.call
+            self.working = false
+            break if @shutdown
+          end
+          @parent_mutex.synchronize do
             if queue.empty?
               @cond.signal
             end
@@ -38,6 +53,10 @@ module ThreadPool
       end
     end
 
+    def join_workers
+      workers.each { |w| w.thread.join }
+    end
+
     def queue_size
       queue.size
     end
@@ -50,6 +69,7 @@ module ThreadPool
       @empty_mutex.synchronize do
         return if queue.empty?
         @empty_cond.wait(@empty_mutex)
+        workers.each { |w| w.shutdown }
       end
     end
   end
